@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="XAU Grid">
+
+<link rel="apple-touch-icon" href="icon.png">
+
+<title>XAU Grid Trader</title>
+
+<style>
+
+body{
+background:#0f172a;
+color:white;
+font-family:Arial;
+margin:0;
+padding:10px;
+padding-left:env(safe-area-inset-left);
+padding-right:env(safe-area-inset-right);
+padding-bottom:env(safe-area-inset-bottom);
+}
+
+.container{
+max-width:520px;
+margin:auto;
+}
+
+h2{
+text-align:center;
+margin-bottom:10px;
+}
+
+.card{
+background:#1e293b;
+padding:12px;
+border-radius:10px;
+margin-bottom:10px;
+}
+
+.row{
+display:flex;
+gap:8px;
+}
+
+input,select{
+width:100%;
+padding:10px;
+border:none;
+border-radius:6px;
+background:#334155;
+color:white;
+font-size:16px;
+margin-top:5px;
+}
+
+button{
+width:100%;
+padding:12px;
+border:none;
+border-radius:6px;
+margin-top:8px;
+font-weight:bold;
+font-size:15px;
+}
+
+.green{background:#22c55e}
+.orange{background:#f59e0b}
+.blue{background:#3b82f6}
+
+table{
+width:100%;
+font-size:14px;
+}
+
+th,td{
+padding:6px;
+text-align:center;
+}
+
+.summary{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:8px;
+margin-top:10px;
+}
+
+.box{
+background:#111827;
+padding:10px;
+border-radius:6px;
+text-align:center;
+}
+
+.exit{
+margin-top:10px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>XAU Grid Trader</h2>
+
+<div class="card">
+
+<div class="row">
+
+<select id="direction">
+<option value="buy">BUY</option>
+<option value="sell">SELL</option>
+</select>
+
+<input id="step" value="25">
+
+</div>
+
+</div>
+
+<div class="card">
+
+<div style="overflow-x:auto">
+
+<table id="gridTable">
+
+<tr>
+<th>Price</th>
+<th>Lot</th>
+<th></th>
+</tr>
+
+<tr>
+<td><input value="5190"></td>
+<td><input value="2"></td>
+<td><button onclick="removeRow(this)">X</button></td>
+</tr>
+
+</table>
+
+</div>
+
+<button class="green" onclick="addRow()">Add Row</button>
+<button class="orange" onclick="martingale()">Martingale</button>
+
+</div>
+
+<div class="card">
+
+Profit Target ($)
+<input id="profitUSD" value="20">
+
+Point Value
+<input id="pointValue" value="1">
+
+Current Price
+<input id="currentPrice" value="5160">
+
+<button class="blue" onclick="calculate()">Calculate</button>
+
+</div>
+
+<div class="summary">
+
+<div class="box">
+Total Lots
+<div id="lots">0</div>
+</div>
+
+<div class="box">
+Avg Price
+<div id="avg">0</div>
+</div>
+
+<div class="box">
+Exit Price
+<div id="exit">0</div>
+</div>
+
+<div class="box">
+Floating
+<div id="pl">0</div>
+</div>
+
+</div>
+
+<div class="card exit" id="exitLevels"></div>
+
+</div>
+
+<script>
+
+function addRow(){
+
+let table=document.getElementById("gridTable")
+let rows=table.rows
+
+let step=parseFloat(document.getElementById("step").value)||25
+let direction=document.getElementById("direction").value
+
+let lastPrice=parseFloat(rows[rows.length-1].cells[0].children[0].value)||0
+let lastLot=parseFloat(rows[rows.length-1].cells[1].children[0].value)||1
+
+let nextPrice
+
+if(direction==="buy")
+nextPrice=lastPrice-step
+else
+nextPrice=lastPrice+step
+
+let row=table.insertRow(-1)
+
+let cell1=row.insertCell(0)
+let cell2=row.insertCell(1)
+let cell3=row.insertCell(2)
+
+cell1.innerHTML='<input value="'+nextPrice+'">'
+cell2.innerHTML='<input value="'+lastLot+'">'
+cell3.innerHTML='<button onclick="removeRow(this)">X</button>'
+
+}
+
+function removeRow(btn){
+
+let row=btn.parentNode.parentNode
+row.parentNode.removeChild(row)
+
+}
+
+function martingale(){
+
+let rows=document.getElementById("gridTable").rows
+
+for(let i=2;i<rows.length;i++){
+
+let prev=parseFloat(rows[i-1].cells[1].children[0].value)||1
+rows[i].cells[1].children[0].value=prev*2
+
+}
+
+}
+
+function calculate(){
+
+let rows=document.getElementById("gridTable").rows
+
+let lots=0
+let weighted=0
+
+for(let i=1;i<rows.length;i++){
+
+let price=parseFloat(rows[i].cells[0].children[0].value)||0
+let lot=parseFloat(rows[i].cells[1].children[0].value)||0
+
+lots+=lot
+weighted+=price*lot
+
+}
+
+if(lots===0){
+alert("Lots cannot be zero")
+return
+}
+
+let avg=weighted/lots
+
+let profit=parseFloat(document.getElementById("profitUSD").value)||0
+let pointValue=parseFloat(document.getElementById("pointValue").value)||1
+let current=parseFloat(document.getElementById("currentPrice").value)||0
+
+let points=profit/(lots*pointValue)
+
+let direction=document.getElementById("direction").value
+
+let exit
+
+if(direction==="buy")
+exit=avg+points
+else
+exit=avg-points
+
+let floating=(current-avg)*lots*pointValue
+
+document.getElementById("lots").innerText=lots
+document.getElementById("avg").innerText=avg.toFixed(2)
+document.getElementById("exit").innerText=exit.toFixed(2)
+document.getElementById("pl").innerText="$"+floating.toFixed(2)
+
+generateExitLevels(avg,lots,pointValue)
+
+}
+
+function generateExitLevels(avg,lots,pointValue){
+
+let profits=[10,20,25,30,40,50,75,100,200]
+
+let direction=document.getElementById("direction").value
+
+let html="<b>Quick Exit Levels</b><table><tr><th>$ Profit</th><th>Exit Price</th></tr>"
+
+for(let i=0;i<profits.length;i++){
+
+let p=profits[i]
+
+let points=p/(lots*pointValue)
+
+let exit
+
+if(direction==="buy")
+exit=avg+points
+else
+exit=avg-points
+
+html+="<tr><td>"+p+"</td><td>"+exit.toFixed(2)+"</td></tr>"
+
+}
+
+html+="</table>"
+
+document.getElementById("exitLevels").innerHTML=html
+
+}
+
+</script>
+
+</body>
+</html>
